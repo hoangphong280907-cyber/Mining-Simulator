@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Mining Simulator — Phase 4</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-top-left">
+        <div class="stat-row">
+          <span class="label">HP</span>
+          <div class="bar"><div class="bar-fill hp-fill" style="width:100%"></div></div>
+        </div>
+        <div class="stat-row">
+          <span class="label">STA</span>
+          <div class="bar"><div class="bar-fill sta-fill" style="width:100%"></div></div>
+        </div>
+        <div class="stat-row stat-money">
+          <span class="stat-icon">💰</span>
+          <span class="stat-text" id="money-value">$0</span>
+        </div>
+        <div class="stat-row stat-weight">
+          <span class="stat-icon">🎒</span>
+          <div class="bar bar-weight">
+            <div class="bar-fill weight-fill" id="weight-fill" style="width:0%"></div>
+          </div>
+          <span class="stat-mini" id="weight-text">0.0/20</span>
+        </div>
+      </div>
+      <div class="hud-top-right">
+        <div id="debug">FPS: --</div>
+        <div id="quality-label">—</div>
+      </div>
+    </div>
+
+    <!-- Target Rock UI -->
+    <div id="target-ui" class="hidden">
+      <div class="target-name" id="target-name">STONE ROCK</div>
+      <div class="target-bar">
+        <div class="target-bar-fill" id="target-hp-fill"></div>
+      </div>
+      <div class="target-hp" id="target-hp-text">HP 100 / 100</div>
+    </div>
+
+    <!-- Detector UI -->
+    <div id="detector-ui" class="hidden">
+      <div class="dt-header">
+        <span class="dt-icon">🔎</span>
+        <span class="dt-title">MINERAL DETECTOR</span>
+        <span class="dt-state" id="dt-state">OFF</span>
+      </div>
+      <div class="dt-body">
+        <div class="dt-row">
+          <span class="dt-label">Signal</span>
+          <div class="dt-bar" id="dt-bar">
+            <div class="dt-bar-seg"></div><div class="dt-bar-seg"></div>
+            <div class="dt-bar-seg"></div><div class="dt-bar-seg"></div>
+            <div class="dt-bar-seg"></div><div class="dt-bar-seg"></div>
+            <div class="dt-bar-seg"></div><div class="dt-bar-seg"></div>
+            <div class="dt-bar-seg"></div><div class="dt-bar-seg"></div>
+          </div>
+        </div>
+        <div class="dt-row dt-row-split">
+          <div class="dt-col">
+            <span class="dt-label">Distance</span>
+            <span class="dt-value" id="dt-distance">--</span>
+          </div>
+          <div class="dt-col">
+            <span class="dt-label">Direction</span>
+            <span class="dt-value dt-direction" id="dt-direction">—</span>
+          </div>
+        </div>
+        <div class="dt-row">
+          <span class="dt-label">Target</span>
+          <span class="dt-value" id="dt-target">NO SIGNAL</span>
+        </div>
+        <div class="dt-row dt-rarity-row hidden" id="dt-rarity-row">
+          <span class="dt-label">Rarity</span>
+          <span class="dt-value" id="dt-rarity">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory Panel (drawer, right side) -->
+    <div id="inventory-panel" class="hidden">
+      <div class="inv-header">
+        <span class="inv-title">🎒 INVENTORY</span>
+        <button class="inv-close" id="inventory-close" type="button">✕</button>
+      </div>
+      <div class="inv-list" id="inventory-list">
+        <div class="inv-empty">Empty</div>
+      </div>
+      <div class="inv-weight-block">
+        <div class="inv-weight-label">CARRYING</div>
+        <div class="inv-weight-bar"><div class="inv-weight-fill" id="inv-weight-fill"></div></div>
+        <div class="inv-weight-text" id="inv-weight-text">0.0 / 20 KG</div>
+      </div>
+    </div>
+
+    <!-- Sell Panel (bottom center, only when in sell zone) -->
+    <div id="sell-panel" class="hidden">
+      <div class="sell-header">🏪 ORE SHOP</div>
+      <div class="sell-list" id="sell-list"></div>
+      <div class="sell-total-row">
+        <span>TOTAL:</span>
+        <span class="sell-total-value" id="sell-total">$0</span>
+      </div>
+      <button class="sell-btn" id="sell-all-btn" type="button">SELL ALL</button>
+    </div>
+
+    <!-- Touch zones -->
+    <div id="camera-zone"></div>
+    <div id="joystick-zone">
+      <div id="joystick-base"><div id="joystick-knob"></div></div>
+    </div>
+
+    <!-- Context Action Button (single, dynamic) -->
+    <button id="context-action-button" class="hidden" type="button">
+      <span class="ctx-icon" id="ctx-icon">⛏️</span>
+      <span class="ctx-label" id="ctx-label">MINE</span>
+    </button>
+
+    <!-- Detector toggle -->
+    <button id="detector-button" type="button">
+      <span class="det-icon">🔎</span>
+      <span class="det-label">SCAN</span>
+    </button>
+
+    <!-- Inventory toggle (mobile + PC) -->
+    <button id="inventory-button" type="button">
+      <span class="inv-icon">🎒</span>
+      <span class="inv-label">BAG</span>
+    </button>
+
+    <!-- Damage numbers -->
+    <div id="damage-layer"></div>
+
+    <!-- Hit flash -->
+    <div id="hit-flash"></div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container"></div>
+
+        <!-- Ore drop labels (projected DOM) -->
+    <div id="ore-label-layer"></div>
+
+    <!-- Inventory item detail modal -->
+    <div id="inv-detail-panel" class="hidden">
+      <div class="inv-detail-card">
+        <div class="inv-detail-header">
+          <span class="inv-detail-icon" id="inv-detail-icon">🟡</span>
+          <span class="inv-detail-name" id="inv-detail-name">GOLD</span>
+          <button class="inv-detail-close" id="inv-detail-close" type="button">✕</button>
+        </div>
+        <div class="inv-detail-body">
+          <div class="inv-detail-row">
+            <span class="inv-detail-label">Quantity</span>
+            <span class="inv-detail-val" id="inv-detail-qty">0</span>
+          </div>
+          <div class="inv-detail-row">
+            <span class="inv-detail-label">Unit value</span>
+            <span class="inv-detail-val" id="inv-detail-unit">$0</span>
+          </div>
+          <div class="inv-detail-row">
+            <span class="inv-detail-label">Total value</span>
+            <span class="inv-detail-val inv-detail-gold" id="inv-detail-total">$0</span>
+          </div>
+          <div class="inv-detail-row">
+            <span class="inv-detail-label">Weight</span>
+            <span class="inv-detail-val" id="inv-detail-weight">0.0 kg</span>
+          </div>
+        </div>
+        <div class="inv-detail-drop">
+          <div class="inv-detail-drop-label">DROP AMOUNT</div>
+          <div class="inv-detail-stepper">
+            <button class="inv-detail-step-btn" id="inv-detail-minus" type="button">−</button>
+            <input class="inv-detail-amount" id="inv-detail-amount" type="number" min="1" value="1">
+            <button class="inv-detail-step-btn" id="inv-detail-plus" type="button">+</button>
+          </div>
+          <div class="inv-detail-actions">
+            <button class="inv-detail-btn inv-detail-btn-drop" id="inv-detail-drop" type="button">DROP</button>
+            <button class="inv-detail-btn inv-detail-btn-all" id="inv-detail-drop-all" type="button">DROP ALL</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading">
+      <div class="loading-text">MINING SIMULATOR</div>
+      <div class="loading-sub">PHASE 4 — ECONOMY LOOP</div>
+      <div class="loading-hint">
+        WASD move &nbsp;•&nbsp; Mouse drag look &nbsp;•&nbsp; E action &nbsp;•&nbsp; Q scan &nbsp;•&nbsp; I bag<br>
+        <span class="mobile-only">Left stick move &nbsp;•&nbsp; Right look &nbsp;•&nbsp; ⛏️ action &nbsp;•&nbsp; 🔎 scan &nbsp;•&nbsp; 🎒 bag</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
